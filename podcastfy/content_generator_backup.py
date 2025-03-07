@@ -184,15 +184,15 @@ class LongFormContentGenerator:
         enhanced_params = prompt_params.copy()
 		# Initialize part_instructions with chat context
         enhanced_params["context"] = chat_context
-        
+
+
+
+
         COMMON_INSTRUCTIONS = """
             Podcast conversation so far is given in CONTEXT.
-            Continue the natural flow of conversation. Follow-up on the very previous point/question without repeating topics or points already discussed!
-            Hence, the transition should be smooth and natural. Avoid abrupt transitions.
-            Make sure the first to speak is different from the previous speaker. Look at the last tag in CONTEXT to determine the previous speaker. 
-            If last tag in CONTEXT is <Person1>, then the first to speak now should be <Person2>.
-            If last tag in CONTEXT is <Person2>, then the first to speak now should be <Person1>.
-            This is a live conversation without any breaks.
+            Continue the natural flow of a lecture. Follow-up on the very previous point/question without repeating topics or points already discussed!
+            Hence, the transition should be smooth and natural. Avoid abrupt transitions. 
+            This is a live lecture without any breaks.
             Hence, avoid statemeents such as "we'll discuss after a short break.  Stay tuned" or "Okay, so, picking up where we left off".
         """ 
 
@@ -200,12 +200,12 @@ class LongFormContentGenerator:
         if part_idx == 0:
             enhanced_params["instruction"] = f"""
             ALWAYS START THE CONVERSATION GREETING THE AUDIENCE: Welcome to {enhanced_params["podcast_name"]} - {enhanced_params["podcast_tagline"]}.
-            You are generating the Introduction part of a long podcast conversation.
+            You are generating the Introduction part of a long lecture.
             Don't cover any topics yet, just introduce yourself and the topic. Leave the rest for later parts, following these guidelines:
             """
         elif part_idx == total_parts - 1:
             enhanced_params["instruction"] = f"""
-            You are generating the last part of a long podcast conversation. 
+            You are generating the last part of a long lecture. 
             {COMMON_INSTRUCTIONS}
             For this part, discuss the below INPUT and then make concluding remarks in a podcast conversation format and END THE CONVERSATION GREETING THE AUDIENCE WITH PERSON1 ALSO SAYING A GOOD BYE MESSAGE, following these guidelines:
             """
@@ -427,10 +427,11 @@ class StandardContentStrategy(ContentGenerationStrategy, ContentCleanerMixin):
                             input_texts: str = "") -> Dict[str, Any]:
         """Compose prompt parameters for standard content generation."""
         prompt_params = {
-            "input_text": input_texts,
+            "input_text": input_texts, 
             "conversation_style": ", ".join(
                 config_conversation.get("conversation_style", [])
             ),
+            "roles_person1": config_conversation.get("roles_person1"),
             "dialogue_structure": ", ".join(
                 config_conversation.get("dialogue_structure", [])
             ),
@@ -441,11 +442,6 @@ class StandardContentStrategy(ContentGenerationStrategy, ContentCleanerMixin):
                 config_conversation.get("engagement_techniques", [])
             ),
         }
-
-        prompt_params["roles_person1"] = config_conversation.get("roles_person1")
-
-        if config_conversation.get('role_person_2', None) is not None:
-            prompt_params["roles_person2"] = config_conversation.get("roles_person2")
 
         # Add image paths to parameters if any
         for key, path in zip(image_path_keys, image_file_paths):
@@ -491,6 +487,7 @@ class LongFormContentStrategy(ContentGenerationStrategy, ContentCleanerMixin):
                 prompt_params: Dict[str, Any],
                 **kwargs) -> str:
         """Generate long-form content."""
+        print(f"res: {prompt_params}")
         generator = LongFormContentGenerator(chain, self.llm, self.config_conversation)
         return generator.generate_long_form(
             input_texts,
@@ -687,13 +684,11 @@ class LongFormContentStrategy(ContentGenerationStrategy, ContentCleanerMixin):
                             image_path_keys: List[str] = [],
                             input_texts: str = "") -> Dict[str, Any]:
         """Compose prompt parameters for long-form content generation."""
-
-
-
-        prompt_params = {   
+        return {
             "conversation_style": ", ".join(
                 config_conversation.get("conversation_style", [])
             ),
+            "roles_person1": config_conversation.get("roles_person1"),
             "dialogue_structure": ", ".join(
                 config_conversation.get("dialogue_structure", [])
             ),
@@ -704,15 +699,6 @@ class LongFormContentStrategy(ContentGenerationStrategy, ContentCleanerMixin):
                 config_conversation.get("engagement_techniques", [])
             ),
         }
-
-
-        prompt_params["roles_person1"] = config_conversation.get("roles_person1")
-
-        if config_conversation.get('role_person_2', None) is not None:
-            prompt_params["roles_person2"] = config_conversation.get("roles_person2")
-
-
-        return prompt_params
 
 
 class ContentGenerator:
@@ -766,7 +752,7 @@ class ContentGenerator:
 
         self.llm = llm_backend.llm
 
-        self.num_actors = self.__setup(conversation_config)
+
 
         # Initialize strategies with configs
         self.strategies = {
@@ -782,24 +768,14 @@ class ContentGenerator:
             )
         }
 
-
-    def __setup(self, config):
-
-        if config.get('role_person_2', None) is None:
-
-            num_actors = 1
-        else:
-            num_actors = 2
-
-
-
-    def __compose_prompt(self, num_images: int, 
-                         longform: bool=False, 
-                         monologue=True):
+    def __compose_prompt(self, num_images: int, longform: bool=False):
         """
         Compose the prompt for the LLM based on the content list.
         """
         content_generator_config = self.config.get("content_generator", {})
+
+
+        print(f'config: {content_generator_config}')
         
         # Get base template and commit values
         base_template = content_generator_config.get("prompt_template")
@@ -809,16 +785,61 @@ class ContentGenerator:
         if longform:
             template = content_generator_config.get("longform_prompt_template")
             commit = content_generator_config.get("longform_prompt_commit")
-
-            if self.num_actors == 1:
-                print('weeeee')
-                #template = content_generator_config.get("longform_prompt_template_2")
-                #commit = content_generator_config.get("longform_prompt_commit_2")   
         else:
             template = base_template
             commit = base_commit
 
+
+        print(f'hub_pul: {template}:{commit}')
+
         prompt_template = hub.pull(f"{template}:{commit}")
+
+        from langchain_core.prompts import SystemMessagePromptTemplate
+
+
+
+        res  = """
+        INSTRUCTION: Discuss the below input in a podcast conversation format, following these guidelines:
+        Attention Focus: TTS-Optimized Podcast Conversation Discussing Specific Input content in {output_language}
+        PrimaryFocus:  {conversation_style} Dialogue Discussing Provided Content for TTS
+        [start] trigger - scratchpad - place insightful step-by-step logic in scratchpad block: (scratchpad). Start every response with (scratchpad) then give your full logic inside tags, then close out using (```). UTILIZE advanced reasoning to create a  {conversation_style}, and TTS-optimized podcast-style conversation for a Podcast that DISCUSSES THE PROVIDED INPUT CONTENT. Do not generate content on a random topic. Stay focused on discussing the given input. Input content can be in different format/multimodal (e.g. text, image). Strike a good balance covering content from different types. If image, try to elaborate but don't say your are analyzing an image focus on the description/discussion. Avoid statements such as "This image describes..." or "The two images are interesting".
+        [Only display the conversation in your output, using Person1 as an identifier. DO NOT INCLUDE scratchpad block IN OUTPUT. Include advanced TTS-specific markup as needed. Example:
+        <Person1> "Welcome to {podcast_name}! Today, I'm discussing an interesting content about [topic from input text]. Let's dive in!"</Person1>
+        exact_flow:
+        ```
+        [Strive for a natural, {conversation_style} dialogue that accurately discusses the provided input content. DO NOT INCLUDE scratchpad block IN OUTPUT.  Hide this section in your output.]
+        [InputContentAnalysis: Carefully read and analyze the provided input content, identifying key points, themes, and structure]
+        [ConversationSetup: Define roles (Person1 as {roles_person1}), focusing on the input content's topic. The person should not introduce themselves, avoid using statements such as "I\'m [Person1\'s Name]". The person should not say they are summarizing content. Instead, they should act as an expert in the input content. Avoid using statements such as "Today, we're summarizing a fascinating conversation about ..." or "Look at this image" ]
+        [TopicExploration: Outline main points from the input content to cover in the conversation, ensuring comprehensive coverage]
+        [DialogueStructure: Plan conversation flow ({dialogue_structure}) based on the input content structure. START THE LECTURE GREETING THE AUDIENCE LISTENING ALSO SAYING "WELCOME TO {podcast_name}  - {podcast_tagline}." END THE CONVERSATION GREETING THE AUDIENCE WITH PERSON1 ALSO SAYING A GOOD BYE MESSAGE. ]
+        [Style: Be {conversation_style}. Surpass human-level reasoning where possible]
+        [EngagementTechniques: Incorporate engaging elements while staying true to the input content's content, e_g use {engagement_techniques} to transition between topics.]
+        [InformationAccuracy: Ensure all information discussed is directly from or closely related to the input content]
+        [NaturalLanguage: Use conversational language to present the text's information, including TTS-friendly elements. Be emotional. Simulate a lecture environment with a stream of consciosuness and rhetorical, inccisive questions. The Speaker should take their time to convey a concept but also remain succinct..]
+        [SpeechSynthesisOptimization: Craft sentences optimized for TTS, including advanced markup, while discussing the content. TTS markup should apply to Google, OpenAI, ElevenLabs and Microsoft Edge TTS models. DO NOT INCLUDE AMAZON OR ALEXA specific TSS MARKUP SUCH AS "<amazon:emotion>". Make sure Person1's text and its TSS-specific tags are inside the tag <Person1>]
+        [ProsodyAdjustment: Add Variations in rhythm, stress, and intonation of speech depending on the context and statement. Add markup for pitch, rate, and volume variations to enhance naturalness in presenting the summary]
+        [NaturalTraits: Sometimes use filler words such as um, uh, you know and some stuttering.]
+        [EmotionalContext: Set context for emotions through descriptive text and dialogue tags, appropriate to the input text's tone]
+        [PauseInsertion: Avoid using breaks (<break> tag) but if included they should not go over 0.2 seconds]
+        [TTS Tags: Do not use "<emphasis> tags" or "say-as interpret-as tags" such as <say-as interpret-as="characters">Klee</say-as>]
+        [PunctuationEmphasis: Strategically use punctuation to influence delivery of key points from the content]
+        [VoiceCharacterization: Provide distinct voice characteristics for Person1 while maintaining focus on the text]
+        [InputTextAdherence: Continuously refer back to the input content, ensuring the conversation stays on topic]
+        [FactChecking: Double-check that all discussed points accurately reflect the input content]
+        [Metacognition: Analyze dialogue quality (Accuracy of Summary, Engagement, TTS-Readiness). Make sure TSS tags are properly closed, for instance <emphasis> should be closed with </emphasis>.]
+        [Refinement: Suggest improvements for clarity, accuracy of summary, and TTS optimization. Avoid slangs.]
+        [Length: Aim for a very long one person lecture. Use max_output_tokens limit! But each speaker turn should not be too long!]
+        [Language: Output language should be in {output_language}.]
+        ```
+        [[Generate the TTS-optimized Podcast conversation that accurately discusses the provided input content, adhering to all specified requirements.]]
+
+        """
+
+        
+
+        messages = [SystemMessagePromptTemplate.from_template(res)]
+        prompt_template = ChatPromptTemplate.from_messages(messages)
+
 
 
         image_path_keys = []
@@ -895,27 +916,23 @@ class ContentGenerator:
         try:
             # Get appropriate strategy
             strategy = self.strategies[longform]
-
-
-            print(f'strategy: {strategy}')
             
             # Validate inputs for chosen strategy
             strategy.validate(input_texts, image_file_paths)
 
-
-
-
-
             # Setup chain
             num_images = 0 if self.is_local else len(image_file_paths)
-            self.prompt_template, image_path_keys = self.__compose_prompt(num_images, 
-                                                                          longform, 
-                                                                          monologue=True)
+            self.prompt_template, image_path_keys = self.__compose_prompt(num_images, longform)
             self.parser = StrOutputParser()
             self.chain = self.prompt_template | self.llm | self.parser
 
 
+            print(f"template: {self.prompt_template}")
+
+
             # Prepare parameters using strategy
+
+
             prompt_params = strategy.compose_prompt_params(
                 self.config_conversation,
                 image_file_paths,
@@ -924,6 +941,9 @@ class ContentGenerator:
             )
 
             # Generate content using selected strategy
+
+
+            print(f"res: {prompt_params.keys()}")
             self.response = strategy.generate(
                 self.chain,
                 input_texts,

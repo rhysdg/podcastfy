@@ -431,6 +431,8 @@ class StandardContentStrategy(ContentGenerationStrategy, ContentCleanerMixin):
             "conversation_style": ", ".join(
                 config_conversation.get("conversation_style", [])
             ),
+            "roles_person1": config_conversation.get("roles_person1"),
+            "roles_person2": config_conversation.get("roles_person2"),
             "dialogue_structure": ", ".join(
                 config_conversation.get("dialogue_structure", [])
             ),
@@ -441,11 +443,6 @@ class StandardContentStrategy(ContentGenerationStrategy, ContentCleanerMixin):
                 config_conversation.get("engagement_techniques", [])
             ),
         }
-
-        prompt_params["roles_person1"] = config_conversation.get("roles_person1")
-
-        if config_conversation.get('role_person_2', None) is not None:
-            prompt_params["roles_person2"] = config_conversation.get("roles_person2")
 
         # Add image paths to parameters if any
         for key, path in zip(image_path_keys, image_file_paths):
@@ -687,13 +684,12 @@ class LongFormContentStrategy(ContentGenerationStrategy, ContentCleanerMixin):
                             image_path_keys: List[str] = [],
                             input_texts: str = "") -> Dict[str, Any]:
         """Compose prompt parameters for long-form content generation."""
-
-
-
-        prompt_params = {   
+        return {
             "conversation_style": ", ".join(
                 config_conversation.get("conversation_style", [])
             ),
+            "roles_person1": config_conversation.get("roles_person1"),
+            "roles_person2": config_conversation.get("roles_person2"),
             "dialogue_structure": ", ".join(
                 config_conversation.get("dialogue_structure", [])
             ),
@@ -704,15 +700,6 @@ class LongFormContentStrategy(ContentGenerationStrategy, ContentCleanerMixin):
                 config_conversation.get("engagement_techniques", [])
             ),
         }
-
-
-        prompt_params["roles_person1"] = config_conversation.get("roles_person1")
-
-        if config_conversation.get('role_person_2', None) is not None:
-            prompt_params["roles_person2"] = config_conversation.get("roles_person2")
-
-
-        return prompt_params
 
 
 class ContentGenerator:
@@ -766,7 +753,7 @@ class ContentGenerator:
 
         self.llm = llm_backend.llm
 
-        self.num_actors = self.__setup(conversation_config)
+
 
         # Initialize strategies with configs
         self.strategies = {
@@ -782,20 +769,7 @@ class ContentGenerator:
             )
         }
 
-
-    def __setup(self, config):
-
-        if config.get('role_person_2', None) is None:
-
-            num_actors = 1
-        else:
-            num_actors = 2
-
-
-
-    def __compose_prompt(self, num_images: int, 
-                         longform: bool=False, 
-                         monologue=True):
+    def __compose_prompt(self, num_images: int, longform: bool=False):
         """
         Compose the prompt for the LLM based on the content list.
         """
@@ -809,17 +783,11 @@ class ContentGenerator:
         if longform:
             template = content_generator_config.get("longform_prompt_template")
             commit = content_generator_config.get("longform_prompt_commit")
-
-            if self.num_actors == 1:
-                print('weeeee')
-                #template = content_generator_config.get("longform_prompt_template_2")
-                #commit = content_generator_config.get("longform_prompt_commit_2")   
         else:
             template = base_template
             commit = base_commit
 
         prompt_template = hub.pull(f"{template}:{commit}")
-
 
         image_path_keys = []
         messages = []
@@ -895,22 +863,13 @@ class ContentGenerator:
         try:
             # Get appropriate strategy
             strategy = self.strategies[longform]
-
-
-            print(f'strategy: {strategy}')
             
             # Validate inputs for chosen strategy
             strategy.validate(input_texts, image_file_paths)
 
-
-
-
-
             # Setup chain
             num_images = 0 if self.is_local else len(image_file_paths)
-            self.prompt_template, image_path_keys = self.__compose_prompt(num_images, 
-                                                                          longform, 
-                                                                          monologue=True)
+            self.prompt_template, image_path_keys = self.__compose_prompt(num_images, longform)
             self.parser = StrOutputParser()
             self.chain = self.prompt_template | self.llm | self.parser
 
