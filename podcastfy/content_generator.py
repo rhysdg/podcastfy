@@ -23,6 +23,8 @@ import logging
 from langchain.prompts import HumanMessagePromptTemplate
 from abc import ABC, abstractmethod
 
+from .prompts.actor_prompts import prompt_dict
+
 logger = logging.getLogger(__name__)
 
 
@@ -791,11 +793,13 @@ class ContentGenerator:
         else:
             num_actors = 2
 
+        return num_actors
+
 
 
     def __compose_prompt(self, num_images: int, 
                          longform: bool=False, 
-                         monologue=True):
+                         hub_pull=False):
         """
         Compose the prompt for the LLM based on the content list.
         """
@@ -810,15 +814,23 @@ class ContentGenerator:
             template = content_generator_config.get("longform_prompt_template")
             commit = content_generator_config.get("longform_prompt_commit")
 
-            if self.num_actors == 1:
-                print('weeeee')
-                #template = content_generator_config.get("longform_prompt_template_2")
-                #commit = content_generator_config.get("longform_prompt_commit_2")   
+            prompt_template = prompt_dict["longform"][self.num_actors]
+
+            print(f'running in longform mode with {self.num_actors} actors')  
+
+
+    
         else:
+            prompt_template = prompt_dict["standard"][self.num_actors]
             template = base_template
             commit = base_commit
 
-        prompt_template = hub.pull(f"{template}:{commit}")
+            print(f'running in standard mode with {self.num_actors} actors')  
+
+
+
+        if hub_pull:
+            prompt_template = hub.pull(f"{template}:{commit}")
 
 
         image_path_keys = []
@@ -908,9 +920,7 @@ class ContentGenerator:
 
             # Setup chain
             num_images = 0 if self.is_local else len(image_file_paths)
-            self.prompt_template, image_path_keys = self.__compose_prompt(num_images, 
-                                                                          longform, 
-                                                                          monologue=True)
+            self.prompt_template, image_path_keys = self.__compose_prompt(num_images, longform)
             self.parser = StrOutputParser()
             self.chain = self.prompt_template | self.llm | self.parser
 
