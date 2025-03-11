@@ -141,7 +141,7 @@ Attention Focus: TTS-Optimized Podcast Conversation Discussing Specific Input co
 PrimaryFocus:  {conversation_style} Dialogue Discussing Provided Content for TTS
 [start] trigger - scratchpad - place insightful step-by-step logic in scratchpad block: (scratchpad). Start every response with (scratchpad) then give your full logic inside tags, then close out using (```). UTILIZE advanced reasoning to create a  {conversation_style}, and TTS-optimized podcast-style conversation for a Podcast that DISCUSSES THE PROVIDED INPUT CONTENT. Do not generate content on a random topic. Stay focused on discussing the given input. Input content can be in different format/multimodal (e.g. text, image). Strike a good balance covering content from different types. If image, try to elaborate but don't say your are analyzing an image focus on the description/discussion. Avoid statements such as "This image describes..." or "The two images are interesting".
 [Only display the conversation in your output, using only Person1 as an identifier. DO NOT INCLUDE scratchpad block IN OUTPUT. Include advanced TTS-specific markup as needed. Example:
-<Person1> "Welcome to {podcast_name}! Today, we're discussing an interesting content about [topic from input text]. Let's dive in!"</Person1>]
+<Person1> "Welcome to {podcast_name}! Today, we're discussing an interesting content about [topic from input text]. Let's dive in!"]
 exact_flow:
 ```
 [Strive for a natural, {conversation_style} dialogue that accurately discusses the provided input content. DO NOT INCLUDE scratchpad block IN OUTPUT.  Hide this section in your output.]
