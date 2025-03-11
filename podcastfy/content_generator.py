@@ -6,9 +6,11 @@ LangChain and various LLM backends. It handles the interaction with the AI model
 provides methods to generate and save the generated content.
 """
 
+import re
 import os
 from typing import Optional, Dict, Any, List
-import re
+from termcolor import colored, cprint
+
 
 
 from langchain_community.chat_models import ChatLiteLLM
@@ -796,7 +798,6 @@ class ContentGenerator:
         return num_actors
 
 
-
     def __compose_prompt(self, num_images: int, 
                          longform: bool=False, 
                          hub_pull=False):
@@ -816,17 +817,14 @@ class ContentGenerator:
 
             prompt_template = prompt_dict["longform"][self.num_actors]
 
-            print(f'running in longform mode with {self.num_actors} actors')  
+            cprint(colored(f'\n\nrunning in longform mode with {self.num_actors} actors\n\n', 'red'))  
 
-
-    
         else:
             prompt_template = prompt_dict["standard"][self.num_actors]
             template = base_template
             commit = base_commit
 
-            print(f'running in standard mode with {self.num_actors} actors')  
-
+            cprint(colored(f'\n\nrunning in standard mode with {self.num_actors} actors\n\n', 'red'))
 
 
         if hub_pull:
