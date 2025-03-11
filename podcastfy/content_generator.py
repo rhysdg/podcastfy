@@ -6,9 +6,11 @@ LangChain and various LLM backends. It handles the interaction with the AI model
 provides methods to generate and save the generated content.
 """
 
+import re
 import os
 from typing import Optional, Dict, Any, List
-import re
+from termcolor import colored, cprint
+
 
 
 from langchain_community.chat_models import ChatLiteLLM
@@ -22,6 +24,8 @@ from podcastfy.utils.config import load_config
 import logging
 from langchain.prompts import HumanMessagePromptTemplate
 from abc import ABC, abstractmethod
+
+from .prompts.actor_prompts import prompt_dict
 
 logger = logging.getLogger(__name__)
 
@@ -431,8 +435,6 @@ class StandardContentStrategy(ContentGenerationStrategy, ContentCleanerMixin):
             "conversation_style": ", ".join(
                 config_conversation.get("conversation_style", [])
             ),
-            "roles_person1": config_conversation.get("roles_person1"),
-            "roles_person2": config_conversation.get("roles_person2"),
             "dialogue_structure": ", ".join(
                 config_conversation.get("dialogue_structure", [])
             ),
@@ -443,6 +445,11 @@ class StandardContentStrategy(ContentGenerationStrategy, ContentCleanerMixin):
                 config_conversation.get("engagement_techniques", [])
             ),
         }
+
+        prompt_params["roles_person1"] = config_conversation.get("roles_person1")
+
+        if config_conversation.get('role_person_2', None) is not None:
+            prompt_params["roles_person2"] = config_conversation.get("roles_person2")
 
         # Add image paths to parameters if any
         for key, path in zip(image_path_keys, image_file_paths):
@@ -684,12 +691,13 @@ class LongFormContentStrategy(ContentGenerationStrategy, ContentCleanerMixin):
                             image_path_keys: List[str] = [],
                             input_texts: str = "") -> Dict[str, Any]:
         """Compose prompt parameters for long-form content generation."""
-        return {
+
+
+
+        prompt_params = {   
             "conversation_style": ", ".join(
                 config_conversation.get("conversation_style", [])
             ),
-            "roles_person1": config_conversation.get("roles_person1"),
-            "roles_person2": config_conversation.get("roles_person2"),
             "dialogue_structure": ", ".join(
                 config_conversation.get("dialogue_structure", [])
             ),
@@ -700,6 +708,15 @@ class LongFormContentStrategy(ContentGenerationStrategy, ContentCleanerMixin):
                 config_conversation.get("engagement_techniques", [])
             ),
         }
+
+
+        prompt_params["roles_person1"] = config_conversation.get("roles_person1")
+
+        if config_conversation.get('role_person_2', None) is not None:
+            prompt_params["roles_person2"] = config_conversation.get("roles_person2")
+
+
+        return prompt_params
 
 
 class ContentGenerator:
@@ -753,7 +770,7 @@ class ContentGenerator:
 
         self.llm = llm_backend.llm
 
-
+        self.num_actors = self.__setup(conversation_config)
 
         # Initialize strategies with configs
         self.strategies = {
@@ -769,7 +786,21 @@ class ContentGenerator:
             )
         }
 
-    def __compose_prompt(self, num_images: int, longform: bool=False):
+
+    def __setup(self, config):
+
+        if config.get('role_person_2', None) is None:
+
+            num_actors = 1
+        else:
+            num_actors = 2
+
+        return num_actors
+
+
+    def __compose_prompt(self, num_images: int, 
+                         longform: bool=False, 
+                         hub_pull=False):
         """
         Compose the prompt for the LLM based on the content list.
         """
@@ -783,11 +814,22 @@ class ContentGenerator:
         if longform:
             template = content_generator_config.get("longform_prompt_template")
             commit = content_generator_config.get("longform_prompt_commit")
+
+            prompt_template = prompt_dict["longform"][self.num_actors]
+
+            cprint(colored(f'\n\nrunning in longform mode with {self.num_actors} actors\n\n', 'red'))  
+
         else:
+            prompt_template = prompt_dict["standard"][self.num_actors]
             template = base_template
             commit = base_commit
 
-        prompt_template = hub.pull(f"{template}:{commit}")
+            cprint(colored(f'\n\nrunning in standard mode with {self.num_actors} actors\n\n', 'red'))
+
+
+        if hub_pull:
+            prompt_template = hub.pull(f"{template}:{commit}")
+
 
         image_path_keys = []
         messages = []
@@ -863,9 +905,16 @@ class ContentGenerator:
         try:
             # Get appropriate strategy
             strategy = self.strategies[longform]
+
+
+            print(f'strategy: {strategy}')
             
             # Validate inputs for chosen strategy
             strategy.validate(input_texts, image_file_paths)
+
+
+
+
 
             # Setup chain
             num_images = 0 if self.is_local else len(image_file_paths)

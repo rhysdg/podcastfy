@@ -160,19 +160,37 @@ class TextToSpeech:
         audio_files = []
         provider_config = self._get_provider_config()
 
-        for idx, (question, answer) in enumerate(qa_pairs, 1):
-            for speaker_type, content in [("question", question), ("answer", answer)]:
-                temp_file = os.path.join(
-                    temp_dir, f"{idx}_{speaker_type}.{self.audio_format}"
-                )
-                voice = provider_config.get("default_voices", {}).get(speaker_type)
-                model = provider_config.get("model")
+ 
+        def write_audio(provider_config, content, speaker_type, idx):
 
-                audio_data = self.provider.generate_audio(content, voice, model)
-                with open(temp_file, "wb") as f:
-                    f.write(audio_data)
-                audio_files.append(temp_file)
+            temp_file = os.path.join(
+                        temp_dir, f"{idx}_{speaker_type}.{self.audio_format}"
+                    )
+            voice = provider_config.get("default_voices", {}).get(speaker_type)
+            model = provider_config.get("model")
 
+            audio_data = self.provider.generate_audio(content, voice, model)
+            with open(temp_file, "wb") as f:
+                f.write(audio_data)
+            temp_file
+
+            return temp_file
+
+        if not all([type(i) == tuple for i in qa_pairs]):
+            for idx, answer in enumerate(qa_pairs, 1):
+                for speaker_type, content in [("answer", answer)]:
+                    temp_file = write_audio(provider_config, content, speaker_type, idx)
+
+                    audio_files.append(temp_file)
+            
+
+        else:
+            for idx, (question, answer) in enumerate(qa_pairs, 1):
+                for speaker_type, content in [("question", question), ("answer", answer)]:
+                    temp_file = write_audio(provider_config, content, speaker_type, idx)
+
+                    audio_files.append(temp_file)
+            
         return audio_files
 
     def _merge_audio_files(self, audio_files: List[str], output_file: str) -> None:

@@ -65,27 +65,39 @@ class TTSProvider(ABC):
         Returns:
                 List[Tuple[str, str]]: A list of tuples containing (Person1, Person2) dialogues.
         """
-        input_text = self.clean_tss_markup(input_text, supported_tags=supported_tags)
-        
-        # Add placeholder if input_text starts with <Person2>
-        if input_text.strip().startswith("<Person2>"):
-            input_text = "<Person1> Humm... </Person1>" + input_text
 
-        # Add ending message to the end of input_text
-        if input_text.strip().endswith("</Person1>"):
-            input_text += f"<Person2>{ending_message}</Person2>"
-
-        # Regular expression pattern to match Person1 and Person2 dialogues
-        pattern = r"<Person1>(.*?)</Person1>\s*<Person2>(.*?)</Person2>"
 
         # Find all matches in the input text
-        matches = re.findall(pattern, input_text, re.DOTALL)
+        if not re.findall("Person2", input_text, re.DOTALL):
+            
+            processed_matches = re.split('</Person1><Person1> |<Person1> |</Person1> ', input_text)
+            processed_matches = [re.sub('</Person1><Person1>|<Person1>|</Person1>|\n', '', i) for i in processed_matches]
+            processed_matches = list(filter(None, processed_matches))
 
-        # Process the matches to remove extra whitespace and newlines
-        processed_matches = [
-            (" ".join(person1.split()).strip(), " ".join(person2.split()).strip())
-            for person1, person2 in matches
-        ]
+        else:
+
+            input_text = self.clean_tss_markup(input_text, supported_tags=supported_tags)
+            
+            # Add placeholder if input_text starts with <Person2>
+            if input_text.strip().startswith("<Person2>"):
+                input_text = "<Person1> Humm... </Person1>" + input_text
+
+            # Add ending message to the end of input_text
+            if input_text.strip().endswith("</Person1>"):
+                input_text += f"<Person2>{ending_message}</Person2>"
+
+            # Regular expression pattern to match Person1 and Person2 dialogues
+            pattern = r"<Person1>(.*?)</Person1>\s*<Person2>(.*?)</Person2>"
+
+            # Find all matches in the input text
+            matches = re.findall(pattern, input_text, re.DOTALL)
+
+            # Process the matches to remove extra whitespace and newlines
+            processed_matches = [
+                (" ".join(person1.split()).strip(), " ".join(person2.split()).strip())
+                for person1, person2 in matches
+            ]
+        
         return processed_matches
 
     def clean_tss_markup(self, input_text: str, additional_tags: List[str] = ["Person1", "Person2"], supported_tags: List[str] = None) -> str:
