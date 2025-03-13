@@ -52,7 +52,8 @@ def process_content(
     model_name: Optional[str] = None,
     api_key_label: Optional[str] = None,
     topic: Optional[str] = None,
-    longform: bool = False
+    longform: bool = False,
+    num_actors: int = 2,   
 ):
     """
     Process URLs, a transcript file, image paths, or raw text to generate a podcast or transcript.
@@ -67,6 +68,7 @@ def process_content(
         # Update with provided config if any
         if conversation_config:
             conv_config.configure(conversation_config)
+
         # Get output directories from conversation config
         tts_config = conv_config.get("text_to_speech", {})
         output_directories = tts_config.get("output_directories", {})
@@ -81,11 +83,16 @@ def process_content(
             if urls or topic or (text and longform and len(text.strip()) < 100):
                 content_extractor = ContentExtractor()
 
+            conv_config = conv_config.to_dict()   
+            if not conversation_config.get("roles_person2"):
+                conv_config["roles_person1"] = "main summarizer"
+                conv_config.pop("roles_person2", None)
+
             content_generator = ContentGenerator(
                 is_local=is_local,
                 model_name=model_name,
                 api_key_label=api_key_label,
-                conversation_config=conv_config.to_dict()
+                conversation_config=conv_config
             )
 
             combined_content = ""
@@ -369,6 +376,9 @@ def generate_podcast(
                     "No input provided. Please provide either 'urls', 'url_file', "
                     "'transcript_file', 'image_paths', 'text', or 'topic'."
                 )
+                
+                
+            
 
             return process_content(
                 urls=urls_list,
