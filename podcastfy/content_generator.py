@@ -448,12 +448,13 @@ class StandardContentStrategy(ContentGenerationStrategy, ContentCleanerMixin):
 
         prompt_params["roles_person1"] = config_conversation.get("roles_person1")
 
-        if config_conversation.get('role_person_2', None) is not None:
+        if config_conversation.get('roles_person2', None) is not None:
             prompt_params["roles_person2"] = config_conversation.get("roles_person2")
 
         # Add image paths to parameters if any
         for key, path in zip(image_path_keys, image_file_paths):
             prompt_params[key] = path
+
 
         return prompt_params
 
@@ -712,9 +713,10 @@ class LongFormContentStrategy(ContentGenerationStrategy, ContentCleanerMixin):
 
         prompt_params["roles_person1"] = config_conversation.get("roles_person1")
 
-        if config_conversation.get('role_person_2', None) is not None:
+        if config_conversation.get('roles_person2', None) is not None:
             prompt_params["roles_person2"] = config_conversation.get("roles_person2")
-
+            
+        
 
         return prompt_params
 
@@ -789,7 +791,7 @@ class ContentGenerator:
 
     def __setup(self, config):
 
-        if config.get('role_person_2', None) is None:
+        if config.get('roles_person2', None) is None:
 
             num_actors = 1
         else:
@@ -905,15 +907,9 @@ class ContentGenerator:
         try:
             # Get appropriate strategy
             strategy = self.strategies[longform]
-
-
-            print(f'strategy: {strategy}')
             
             # Validate inputs for chosen strategy
             strategy.validate(input_texts, image_file_paths)
-
-
-
 
 
             # Setup chain
@@ -950,8 +946,8 @@ class ContentGenerator:
             if output_filepath:
                 with open(output_filepath, "w") as file:
                     file.write(self.response)
-                logger.info(f"Response content saved to {output_filepath}")
-                print(f"Transcript saved to {output_filepath}")
+
+                cprint(colored(f'\n\nTranscript saved to {output_filepath}\n\n', 'red'))
 
             return self.response
             
