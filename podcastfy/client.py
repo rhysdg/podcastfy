@@ -136,7 +136,7 @@ def process_content(
             text_to_speech = TextToSpeech(
                 model=tts_model,
                 api_key=api_key,
-                conversation_config=conv_config.to_dict(),
+                conversation_config=conv_config,
             )
 
             random_filename = f"podcast_{uuid.uuid4().hex}.mp3"
