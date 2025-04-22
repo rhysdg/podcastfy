@@ -45,6 +45,7 @@ def process_content(
     tts_model: Optional[str] = None,
     generate_audio: bool = True,
     config: Optional[Dict[str, Any]] = None,
+    content_dict: Optional[Dict[str, Any]] = None,
     conversation_config: Optional[Dict[str, Any]] = None,
     image_paths: Optional[List[str]] = None,
     is_local: bool = False,
@@ -80,7 +81,7 @@ def process_content(
         else:
             # Initialize content_extractor if needed
             content_extractor = None
-            if urls or topic or (text and longform and len(text.strip()) < 100):
+            if urls or topic or content_dict or (text and longform and len(text.strip()) < 100):
                 content_extractor = ContentExtractor()
 
             conv_config = conv_config.to_dict()   
@@ -113,7 +114,10 @@ def process_content(
             if topic:
                 topic_content = content_extractor.generate_topic_content(topic)
                 combined_content += f"\n\n{topic_content}"
-
+            if content_dict:
+                combined_content = list(content_extractor.extract_content(content_dict))
+                
+                
             # Generate Q&A content using output directory from conversation config
             random_filename = f"transcript_{uuid.uuid4().hex}.txt"
             transcript_filepath = os.path.join(
@@ -126,7 +130,6 @@ def process_content(
                 output_filepath=transcript_filepath,
                 longform=longform
             )
-
 
         if generate_audio:
             api_key = None
@@ -289,6 +292,7 @@ def generate_podcast(
     tts_model: Optional[str] = None,
     transcript_only: bool = False,
     config: Optional[Dict[str, Any]] = None,
+    content_dict: Optional[Dict[str, Any]] = None,
     conversation_config: Optional[Dict[str, Any]] = None,
     image_paths: Optional[List[str]] = None,
     is_local: bool = False,
@@ -349,7 +353,7 @@ def generate_podcast(
         if tts_model is None:
             tts_model = conversation_config.get("default_tts_model", "openai")
 
-        if transcript_file:
+        if transcript_file or content_dict:
             if image_paths:
                 logger.warning("Image paths are ignored when using a transcript file.")
             return process_content(
@@ -357,6 +361,7 @@ def generate_podcast(
                 tts_model=tts_model,
                 generate_audio=not transcript_only,
                 config=default_config,
+                content_dict=content_dict,
                 conversation_config=conversation_config,
                 is_local=is_local,
                 text=text,
@@ -365,6 +370,8 @@ def generate_podcast(
                 topic=topic,
                 longform=longform
             )
+        
+   
         else:
             urls_list = urls or []
             if url_file:
@@ -377,8 +384,6 @@ def generate_podcast(
                     "'transcript_file', 'image_paths', 'text', or 'topic'."
                 )
                 
-                
-            
 
             return process_content(
                 urls=urls_list,

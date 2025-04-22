@@ -13,6 +13,8 @@ from urllib.parse import urlparse
 from .youtube_transcriber import YouTubeTranscriber
 from .website_extractor import WebsiteExtractor
 from .pdf_extractor import PDFExtractor
+from .json_extractor import JSONExtractor
+from .dict_extractor import DictExtractor
 from podcastfy.utils.config import load_config
 
 logger = logging.getLogger(__name__)
@@ -25,6 +27,8 @@ class ContentExtractor:
 		self.youtube_transcriber = YouTubeTranscriber()
 		self.website_extractor = WebsiteExtractor()
 		self.pdf_extractor = PDFExtractor()
+		self.json_extractor = JSONExtractor()
+		self.dict_extractor = DictExtractor()
 		self.config = load_config()
 		self.content_extractor_config = self.config.get('content_extractor', {})
 
@@ -53,7 +57,7 @@ class ContentExtractor:
 		Extract content from various sources.
 
 		Args:
-			source (str): URL or file path of the content source.
+			source (str): URL, data structure, or file path of the content source.
 
 		Returns:
 			str: Extracted text content.
@@ -62,15 +66,20 @@ class ContentExtractor:
 			ValueError: If the source type is unsupported.
 		"""
 		try:
-			if source.lower().endswith('.pdf'):
-				return self.pdf_extractor.extract_content(source)
-			elif self.is_url(source):
-				if any(pattern in source for pattern in self.content_extractor_config['youtube_url_patterns']):
-					return self.youtube_transcriber.extract_transcript(source)
-				else:
-					return self.website_extractor.extract_content(source)
+			if isinstance(source, dict):
+				return self.dict_extractor.extract_content(source)
 			else:
-				raise ValueError("Unsupported source type")
+				if source.lower().endswith('.pdf'):
+					return self.pdf_extractor.extract_content(source)
+				elif source.lower.endswith('.json'):
+					return self.json_extractor.extract_content(source)
+				elif self.is_url(source):
+					if any(pattern in source for pattern in self.content_extractor_config['youtube_url_patterns']):
+						return self.youtube_transcriber.extract_transcript(source)
+					else:
+						return self.website_extractor.extract_content(source)
+				else:
+					raise ValueError("Unsupported source type")
 		except Exception as e:
 			logger.error(f"Error extracting content from {source}: {str(e)}")
 			raise
